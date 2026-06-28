@@ -183,7 +183,14 @@ These all sit cleanly on top of this structure without changing it:
 - Live signup counter on the page (read `COUNT(*)`).
 - GDPR consent line + privacy note near the forms.
 - Analytics (Plausible/GA) and Open Graph social-preview tags.
-- The iOS app itself (separate repo; it reuses `/api/subscribe`).
+- The iOS app itself (separate repo; it reuses `/api/subscribe`). When that repo
+  is started, **React Native** (native iOS/Android app) and a **fault-isolated /
+  service-oriented backend** (for genuinely independent concerns — search,
+  price-comparison, drop/restock alerts, folders) belong there, each as its own
+  spec. They are deliberately NOT applied to this waitlist site: RN does not apply
+  to a static marketing page, and the waitlist backend is a single function over a
+  single table — splitting it into microservices would add failure modes for no
+  benefit (YAGNI).
 
 ## 9. Open assumption for review
 
