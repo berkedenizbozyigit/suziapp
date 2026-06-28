@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: suzi-db
+    ports:
+      - "5434:5432"        # host 5434 (5432/5433 taken) -> container 5432
+    environment:
+      POSTGRES_USER: suzi
+      POSTGRES_PASSWORD: suzi
+      POSTGRES_DB: suzi
+    volumes:
+      - suzi-db-data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+volumes:
+  suzi-db-data:
