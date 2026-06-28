@@ -60,9 +60,10 @@ git push -u origin main
 ## Deploy (Vercel — easiest for a static site)
 
 1. https://vercel.com → New Project → import this GitHub repo.
-2. No build settings needed — it's a static `index.html`. Just deploy.
-3. Project → Settings → Domains → add `suziapp.com`.
-4. At your domain registrar, point DNS to Vercel (their dashboard shows the exact records).
+2. No build settings needed — Vercel serves the static `index.html` and runs
+   `api/subscribe.js` as a serverless function (it auto-installs `pg`). Just deploy.
+3. Set the `POSTGRES_URL` env var (see "Production database" above) and redeploy.
+4. Project → Settings → Domains → add `suziapp.com`, then point DNS at Vercel.
 
 Netlify works identically (drag-and-drop the folder, or connect the repo).
 
@@ -71,8 +72,22 @@ Netlify works identically (drag-and-drop the folder, or connect the repo).
 ## Files
 
 ```
-suzi-web/
-├── index.html     # the entire site (self-contained)
-├── README.md      # this file
+suziapp/
+├── index.html          # the entire marketing site (self-contained)
+├── api/
+│   └── subscribe.js    # Vercel serverless function: POST /api/subscribe
+├── lib/
+│   ├── email.js        # pure email normalize/validate
+│   ├── subscribe-handler.js  # pure request logic (validation, honeypot)
+│   ├── db.js           # pg connection pool
+│   └── signups.js      # the INSERT (idempotent)
+├── db/
+│   └── schema.sql      # the signups table
+├── test/               # node:test unit + DB-gated integration tests
+├── docker-compose.yml  # local Postgres on host port 5434
+├── Makefile            # db-up / db-down / db-reset / db-psql / dev / test
+├── package.json        # ESM + pg dependency
+├── .env.example        # documents POSTGRES_URL
+├── README.md           # this file
 └── .gitignore
 ```
