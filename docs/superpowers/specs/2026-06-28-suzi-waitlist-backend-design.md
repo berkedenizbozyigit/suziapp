@@ -4,8 +4,22 @@
 **Status:** Approved design, pre-implementation
 **Scope:** Replace the fake demo forms with a real, owned backend that captures
 waitlist emails. Keep the system minimal, clean, and readable.
+**Cost:** $0, no credit card (see §0).
 
 ---
+
+## 0. Cost constraint — everything is free, no credit card
+
+Hard requirement: **nothing in this spec may require payment or a card.**
+
+| Piece | Provider | Cost | Card? | Notes |
+|---|---|---|---|---|
+| Static site + `/api` function | **Vercel Hobby** | $0 | No | Free forever. ToS is "personal/non-commercial" — fine for a pre-launch waitlist; revisit (~$20/mo Pro) only if/when monetized on it. |
+| Production database | **Supabase** free tier | $0 | No | Explicitly allows commercial use. 500 MB DB. Pauses after 7 days idle (a single signup wakes it). |
+| Local database | **Docker Postgres** | $0 | No | Runs on your machine. |
+| `pg`, Makefile, Compose | open source | $0 | No | — |
+
+No paid service, domain, or card is required to build, run, or deploy this.
 
 ## 1. Goal
 
@@ -13,7 +27,7 @@ Right now both forms in `index.html` call `event.preventDefault(); alert('Demo o
 and **throw the email away**. Before going public we need a real backend that:
 
 - captures every signup reliably,
-- stores it in a database **we own** (Vercel Postgres),
+- stores it in a database **we own** (Supabase Postgres, free tier),
 - is exposed as a clean JSON API the **future iOS app** can reuse,
 - runs locally against a real Postgres (Docker) for true local/prod parity.
 
@@ -34,7 +48,7 @@ Three pieces, each with one job:
  lib/db.js             ← one pg connection pool (owns DB config)
         │  INSERT
         ▼
- signups table         ← Vercel Postgres (prod) / Docker Postgres :5434 (local)
+ signups table         ← Supabase Postgres (prod, free) / Docker Postgres :5434 (local)
 ```
 
 **Design principles applied (right-sized, not gold-plated):**
@@ -46,7 +60,7 @@ Three pieces, each with one job:
   single `submitWaitlist()` function. The backend has a single `query()` helper, so
   connection logic lives in exactly one place.
 - **One library, two environments** — `pg` + a `POSTGRES_URL` connection string
-  works identically against local Docker Postgres and Vercel Postgres.
+  works identically against local Docker Postgres and Supabase Postgres.
 
 ## 3. Components
 
@@ -81,7 +95,8 @@ CREATE TABLE IF NOT EXISTS signups (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
-One table. Exportable to CSV from the Vercel dashboard. Same file seeds local and prod.
+One table. Exportable to CSV from the Supabase dashboard. Same file seeds local
+and prod (run it once in the Supabase SQL editor).
 
 ### 3.4 Frontend — `index.html`
 - Remove both `onsubmit="...alert..."` handlers.
@@ -118,8 +133,9 @@ Readable, self-documenting targets:
 ### 4.3 Env & config
 - `.env.example` documents the one required var:
   `POSTGRES_URL=postgres://suzi:suzi@localhost:5434/suzi`
-- `.env` is git-ignored. Production sets `POSTGRES_URL` via the Vercel Postgres
-  integration (auto-injected — no secrets in the repo).
+- `.env` is git-ignored. Production sets `POSTGRES_URL` as a Vercel **environment
+  variable**, pasted from Supabase's connection string (use Supabase's **connection
+  pooler** string — recommended for serverless). No secrets in the repo.
 
 ## 5. File structure (delta)
 
