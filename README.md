@@ -8,44 +8,35 @@ This repo is **only the website**. The actual Suzi app will get its own repo lat
 
 ---
 
-## ⚠️ Do this BEFORE you go public: connect the email form
+## Backend: real waitlist capture (already wired)
 
-Right now both forms (hero + bottom CTA) are demo-only — they show an alert and
-**throw the email away**. If you launch like this, every signup is lost. Pick one
-option below and wire it. 5–10 minutes.
+The hero and CTA forms POST to `/api/subscribe`, a Vercel serverless function
+that stores each email in a Postgres `signups` table. Nothing is thrown away.
+A hidden honeypot field drops bot submissions; duplicate emails are ignored
+safely (no error).
 
-### Option A — Web3Forms (fastest, free, no backend) ✅ recommended to start
+### Run it locally
+1. `make db-up` — start local Postgres (Docker, host port 5434).
+2. `cp .env.example .env` — the default local `POSTGRES_URL` works as-is.
+3. `make dev` — serves the site + `/api/subscribe` (needs `npm i -g vercel`).
+4. `make test` — run the unit tests (`node --test`).
 
-1. Go to https://web3forms.com, enter `hello@suziapp.com`, copy your Access Key.
-2. In `index.html`, find both `<form ...>` tags (search for `onsubmit`).
-3. Replace each form's `onsubmit="..."` with the wiring below and paste your key.
+Useful: `make db-psql` (open a SQL shell), `make db-reset` (wipe + recreate).
 
-```html
-<!-- BEFORE -->
-<form class="hero-form" onsubmit="event.preventDefault(); alert('Demo only ...')">
+### Production database (Supabase — free, no card)
+1. Create a free project at https://supabase.com (commercial use allowed on the free tier).
+2. Run the contents of `db/schema.sql` once in the Supabase SQL editor.
+3. Settings → Database → Connection pooling → copy the **URI**.
+4. In Vercel → Project → Settings → Environment Variables, add
+   `POSTGRES_URL` = that pooler URI. Redeploy.
 
-<!-- AFTER -->
-<form class="hero-form" action="https://api.web3forms.com/submit" method="POST">
-  <input type="hidden" name="access_key" value="YOUR_ACCESS_KEY_HERE">
-  <input type="hidden" name="subject" value="New Suzi waitlist signup">
-  <!-- keep the existing email <input> and <button> exactly as they are -->
-```
-
-Do the same for `cta-form`. Submissions land in your email; you can also export them.
-
-### Option B — Mailchimp (if you want a real email list / sending built in)
-
-Mailchimp → Audience → Signup forms → Embedded form → copy the form HTML, and
-replace the existing `<form>` blocks with Mailchimp's `<form action="...">`.
-Keep Suzi's existing CSS classes so the styling stays intact.
-
-> Either works. Start with A to capture signups today; you can migrate to B later.
+Export signups anytime from the Supabase table editor (CSV).
 
 ---
 
 ## Other pre-launch checklist
 
-- [ ] **Form wired** (above) — the only true blocker
+- [x] **Form wired** — done: forms POST to `/api/subscribe` (Postgres-backed)
 - [ ] **Counter**: the fake "1,247" was removed. Add a real number back when you have one (see comment in `index.html`).
 - [ ] **GDPR**: you're UK/EU. Add one consent line near the form, e.g.
       "By joining you agree we can email you about Suzi's launch." + a short privacy note.
