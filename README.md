@@ -65,7 +65,10 @@ git push -u origin main
 3. Set the `POSTGRES_URL` env var (see "Production database" above) and redeploy.
 4. Project → Settings → Domains → add `suziapp.com`, then point DNS at Vercel.
 
-Netlify works identically (drag-and-drop the folder, or connect the repo).
+> Note: deploy on **Vercel**, not Netlify drag-and-drop — `api/subscribe.js` uses
+> Vercel's serverless function format, so the static page would work elsewhere but
+> `/api/subscribe` would 404. (Netlify is possible but needs the function ported to
+> `netlify/functions/` with its own handler signature.)
 
 ---
 
