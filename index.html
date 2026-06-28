@@ -305,8 +305,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--grey-9
         <div class="hero-tag">Launching summer 2026 · iOS first</div>
         <h1 class="hero-h1">stop tabbing. start swiping.</h1>
         <p class="hero-sub">Your AI shopping bestie. She digs the internet, brings back only the gems, and keeps everything you love neatly in one place.</p>
-        <form class="hero-form" onsubmit="event.preventDefault(); alert('Demo only — connect to a real form provider when shipping.')">
+        <form class="hero-form" onsubmit="return submitWaitlist(event, this)">
           <input type="email" class="hero-input" placeholder="your@email.com" required>
+          <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
           <button type="submit" class="hero-btn">Join waitlist</button>
         </form>
         <div class="hero-meta">No spam<span class="dot"></span>Just one email at launch<span class="dot"></span>Pinky promise</div>
@@ -468,8 +469,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--grey-9
   <div class="cta-tag">The waitlist</div>
   <h2 class="cta-h2">Ready to stop tabbing?</h2>
   <p class="cta-sub">Join the list. Be the first to swipe.</p>
-  <form class="cta-form" onsubmit="event.preventDefault(); alert('Demo only — connect to a real form provider when shipping.')">
+  <form class="cta-form" onsubmit="return submitWaitlist(event, this)">
     <input type="email" class="cta-input" placeholder="your@email.com" required>
+    <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
     <button type="submit" class="cta-btn">Join waitlist</button>
   </form>
   <!-- Counter removed: add back with a REAL number once you have signups, e.g. <div class="cta-counter"><span class="num">214</span> already in line</div> -->
@@ -508,5 +510,40 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--grey-9
   </div>
 </footer>
 
+<script>
+// One submit handler shared by both waitlist forms (DRY).
+async function submitWaitlist(event, form) {
+  event.preventDefault();
+  const btn = form.querySelector('button[type="submit"]');
+  const emailInput = form.querySelector('input[type="email"]');
+  const honeypot = form.querySelector('input[name="website"]');
+  const original = btn.textContent;
+
+  btn.disabled = true;
+  btn.textContent = 'Joining…';
+
+  try {
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailInput.value, website: honeypot.value }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      btn.textContent = "You're in ✓";
+      emailInput.value = '';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Try again';
+      setTimeout(() => { btn.textContent = original; }, 2500);
+    }
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Try again';
+    setTimeout(() => { btn.textContent = original; }, 2500);
+  }
+  return false;
+}
+</script>
 </body>
 </html>
