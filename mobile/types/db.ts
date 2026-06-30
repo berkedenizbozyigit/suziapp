@@ -41,13 +41,21 @@ export type Product = {
   updated_at: string | null;
 }
 
-/** folders(...) — user-owned buckets that saved items can be filed under. */
+/** folders(...) — user-owned buckets that saved items can be filed under.
+ *  query_text / cover_saved_item_id added in Phase 1 (folders-as-conversations).
+ *  query_embedding (pgvector) is deferred to Phase 2, once the dimension is fixed. */
 export type Folder = {
   id: string;
   user_id: string;
   name: string;
+  query_text: string | null;
+  cover_saved_item_id: string | null;
   created_at: string;
 };
+
+/** The user's answer to "did you buy it?" — a SOFT signal, NOT revenue truth.
+ *  Real money lands in the service-role-only `conversions` table (not typed here). */
+export type PurchaseIntent = 'bought' | 'not_yet' | 'no';
 
 /** saved_items(...) — a product a user swiped right on. */
 export type SavedItem = {
@@ -56,13 +64,16 @@ export type SavedItem = {
   product_id: string;
   folder_id: string | null;
   price_at_save: number | null;
+  purchase_intent: PurchaseIntent | null;
   created_at: string;
 };
 
-/** profiles(...) — public profile row, id === auth.users.id. */
+/** profiles(...) — public profile row, id === auth.users.id.
+ *  expo_push_token added in Phase 1 (stored after the push-permission grant). */
 export type Profile = {
   id: string;
   display_name: string | null;
+  expo_push_token: string | null;
   created_at: string;
 };
 
@@ -95,20 +106,24 @@ export type Database = {
       };
       folders: {
         Row: Folder;
-        Insert: { user_id: string; name: string };
-        Update: { name?: string };
+        Insert: { user_id: string; name: string; query_text?: string | null };
+        Update: {
+          name?: string;
+          query_text?: string | null;
+          cover_saved_item_id?: string | null;
+        };
         Relationships: [];
       };
       saved_items: {
         Row: SavedItem;
         Insert: SavedItemInsert;
-        Update: { folder_id?: string | null };
+        Update: { folder_id?: string | null; purchase_intent?: PurchaseIntent | null };
         Relationships: [];
       };
       profiles: {
         Row: Profile;
         Insert: { id: string; display_name?: string | null };
-        Update: { display_name?: string | null };
+        Update: { display_name?: string | null; expo_push_token?: string | null };
         Relationships: [];
       };
     };
