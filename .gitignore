@@ -1,3 +1,7 @@
 node_modules/
 .env
 .vercel
+
+# Supabase CLI local state (never commit)
+**/supabase/.temp/
+**/supabase/.branches/

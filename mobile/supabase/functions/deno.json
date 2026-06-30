@@ -1,0 +1,9 @@
+{
+  "//": "Presence of this file switches editors to the Deno language server for Edge Functions (correct Deno globals + remote URL imports). These functions run on Supabase's Deno runtime, NOT the React Native/Expo TS toolchain — they are excluded from mobile/tsconfig.json on purpose.",
+  "lint": {
+    "rules": { "tags": ["recommended"] }
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.108.2"
+  }
+}

@@ -1,0 +1,13 @@
+# Supabase CLI config for the Suzi mobile backend.
+# Run the CLI from `mobile/` so it finds this file at mobile/supabase/.
+project_id = "gmwzevruiqrttymlpxec"
+
+# search runs under the caller's JWT (anon or real) so RLS applies in
+# match_products. Anonymous users have a valid JWT, so verify_jwt = true is fine.
+[functions.search]
+verify_jwt = true
+
+# reembed is an admin task: no end-user JWT. It is guarded by the
+# x-admin-secret header (ADMIN_TASK_SECRET) inside the function instead.
+[functions.reembed]
+verify_jwt = false

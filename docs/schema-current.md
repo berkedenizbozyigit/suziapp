@@ -3,10 +3,11 @@
 **Source of truth:** live Supabase project `gmwzevruiqrttymlpxec`, `public` schema,
 introspected 2026-06-30 via `pg_catalog` (read-only).
 
-**State:** **post-Phase-1.** The original 5 tables were dashboard-only and unversioned;
-they are now captured in `mobile/supabase/migrations/20260630000000_0000_baseline.sql`, and the
-Phase 1 delta (conversations / alerts / affiliate) is applied and captured in
-`mobile/supabase/migrations/20260630120000_phase1_conversations_alerts_affiliate.sql`.
+**State:** **post-Phase-2.** The original 5 tables were dashboard-only and unversioned;
+they are now captured in `mobile/supabase/migrations/20260630000000_0000_baseline.sql`. The
+Phase 1 delta (conversations / alerts / affiliate) and the Phase 2 delta (vector search) are
+applied and captured in `20260630120000_phase1_conversations_alerts_affiliate.sql` and
+`20260630130000_phase2_vector_search.sql`.
 
 > Trust this file over the project brief where they differ (per the brief's own instruction).
 
@@ -16,8 +17,8 @@ Phase 1 delta (conversations / alerts / affiliate) is applied and captured in
 
 | Fact | Value | Consequence |
 |---|---|---|
-| **`products.embedding` dimension** | **`vector(1536)`** | Consistent with an **OpenAI text embedding** (`text-embedding-3-small` / `ada-002`). Exact provider not recorded in DB → "needs confirmation"; dimension is certain. Multimodal (Phase 2) changes the dim ⇒ **re-embed + HNSW rebuild required** (confirms brief assumption **A-embeddings**). |
-| **HNSW opclass** | `vector_cosine_ops` (cosine) | Already what Phase 2 wants — no opclass change, only a dim/rebuild if the provider changes. |
+| **`products.embedding`** | **`vector(1536)`**, model **`cohere-embed-v4.0`** | Phase 2 re-embedded all products with **Cohere Embed v4 (multimodal, text+image)** at `output_dimension=1536`. Because 1536 == the prior dim, the column and HNSW index were **reused as-is — no rebuild**. `embedding_model` tracks the producing model for resumable re-embeds / future swaps. |
+| **HNSW opclass** | `vector_cosine_ops` (cosine) | Matches Cohere's space; `match_products` uses `<=>`. No opclass change. |
 | **`pgvector` version** | `0.8.0` | Supports HNSW + halfvec; current. |
 | **`saved_items` uniqueness** | `UNIQUE (user_id, product_id)` | Idempotent saves, BUT a product can be saved **once per user, regardless of folder**. ⚠️ Drives the Phase 3 save strategy → **upsert on `(user_id, product_id)`, move `folder_id`** (see §6). |
 | **`products` ingestion key** | `UNIQUE (source, external_id)` | Idempotent catalog ingestion in place. |
@@ -62,7 +63,9 @@ Phase 1 delta (conversations / alerts / affiliate) is applied and captured in
 | `sizes` | `text[]` | null | — |
 | `in_stock` | `boolean` | not null | `true` |
 | `attributes` | `jsonb` | not null | `'{}'` |
-| `embedding` | **`vector(1536)`** | null | — |
+| `embedding` | **`vector(1536)`** | null | — (Cohere Embed v4) |
+| `embedding_model` | `text` | null | — (e.g. `cohere-embed-v4.0`) |
+| `embedded_at` | `timestamptz` | null | — |
 | `created_at` | `timestamptz` | not null | `now()` |
 | `updated_at` | `timestamptz` | not null | `now()` |
 
@@ -85,8 +88,8 @@ Phase 1 delta (conversations / alerts / affiliate) is applied and captured in
 | `name` | `text` | not null | — |
 | `query_text` | `text` | null | — |
 | `cover_saved_item_id` | `uuid` | null | — |
+| `query_embedding` | `vector(1536)` | null | — (Phase 2; seeds "continue this folder") |
 | `created_at` | `timestamptz` | not null | `now()` |
-| *(deferred)* `query_embedding` | `vector(DIM)` | — | Phase 2, once DIM fixed |
 
 **`saved_items`** — a right-swipe *(Phase 1 added `purchase_intent`)*
 | Column | Type | Null? | Default |
@@ -160,7 +163,7 @@ Phase 1 delta (conversations / alerts / affiliate) is applied and captured in
 
 ## 3. Indexes
 
-**products:** `products_pkey` UNIQUE(`id`) · `products_source_external_id_key` UNIQUE(`source`,`external_id`) · `products_category_idx`(`category`) · `products_in_stock_idx`(`in_stock`) · `products_price_idx`(`price`) · **`products_embedding_idx` HNSW(`embedding` `vector_cosine_ops`)**
+**products:** `products_pkey` UNIQUE(`id`) · `products_source_external_id_key` UNIQUE(`source`,`external_id`) · `products_category_idx`(`category`) · `products_in_stock_idx`(`in_stock`) · `products_price_idx`(`price`) · **`products_embedding_idx` HNSW(`embedding` `vector_cosine_ops`)** · `products_needs_embedding_idx`(`id`) WHERE `embedding_model is null` *(Phase 2; finds rows needing re-embed)*
 **price_history:** `price_history_pkey` UNIQUE(`id`) · `price_history_product_idx`(`product_id`,`recorded_at DESC`)
 **folders:** `folders_pkey` UNIQUE(`id`) · `folders_user_idx`(`user_id`)
 **saved_items:** `saved_items_pkey` UNIQUE(`id`) · `saved_items_user_id_product_id_key` UNIQUE(`user_id`,`product_id`) · `saved_items_user_idx`(`user_id`) · `saved_items_product_idx`(`product_id`)
@@ -169,6 +172,15 @@ Phase 1 delta (conversations / alerts / affiliate) is applied and captured in
 **alerts:** `alerts_pkey` · unique key on the 4-tuple · `alerts_user_idx`(`user_id`) WHERE active · `alerts_target_idx`(`target_type`,`target_id`) WHERE active
 **outbound_clicks:** `outbound_clicks_pkey` · `outbound_clicks_subid_idx`(`subid`) · `outbound_clicks_user_idx`(`user_id`,`clicked_at DESC`)
 **conversions:** `conversions_pkey` · `conversions_subid_idx`(`subid`)
+
+---
+
+## 3b. Functions / RPC
+
+- **`match_products(query_embedding vector(1536), match_count int default 20, exclude_ids uuid[] default '{}')`**
+  *(Phase 2)* — cosine kNN over `products.embedding` (HNSW). Returns `(id, score)` where
+  `score = 1 - (embedding <=> query_embedding)`; in-stock only; excludes `exclude_ids`.
+  `SECURITY INVOKER`, `search_path = public`. Called by the `search` Edge Function.
 
 ---
 
@@ -231,10 +243,10 @@ not the chosen direction.)
 
 - **`price_history.id` identity** — observed `bigint`, no column default; baseline reconstructs it
   as `generated always as identity`. Only matters for fresh-DB bootstraps; flagged in the baseline.
-- **Deployed Edge Functions** — none in repo; live list not introspected (Supabase MCP not
-  connected this session). Assume none; confirm at Phase 2.
-- **Embedding provider identity** — dimension is certainly 1536; exact model not recorded →
-  "needs confirmation" (resolved by the Phase 2 decision gate).
+- **Deployed Edge Functions** — `search` and `reembed` are deployed (Phase 2). Source under
+  `mobile/supabase/functions/`.
+- ~~Embedding provider identity~~ — **RESOLVED:** Cohere Embed v4 (`cohere-embed-v4.0`),
+  1536-dim, tracked per row in `products.embedding_model`. Catalog re-embedded Phase 2.
 - **`profiles` creation path** — no INSERT policy + no `id` default ⇒ rows created out-of-band
   (trigger?). Confirm before Phase 5.
 - **Storage buckets / triggers** — not introspected (needed at Phase 4 / Phase 5).
