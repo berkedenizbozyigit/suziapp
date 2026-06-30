@@ -2,8 +2,9 @@ import { supabase } from './supabase';
 import type { Product, SavedItem } from '../types/db';
 
 // Explicit column list keeps the heavy/irrelevant `embedding` (pgvector) column
-// off the wire — we never use it on the client.
-const PRODUCT_COLUMNS =
+// off the wire — we never use it on the client. Exported so search.ts hydrates
+// deck products with the same shape.
+export const PRODUCT_COLUMNS =
   'id, source, external_id, merchant, brand, title, description, category, ' +
   'price, original_price, currency, image_url, product_url, colors, sizes, ' +
   'in_stock, attributes, created_at, updated_at';
@@ -38,21 +39,31 @@ export async function fetchProducts(rawQuery: string): Promise<Product[]> {
 }
 
 /**
- * Persist a right-swipe. price_at_save snapshots the price now so later
- * price-drop tracking has a baseline. folder_id null => the "All saves" bucket.
+ * Persist a right-swipe. Idempotent UPSERT on (user_id, product_id) — re-swiping
+ * an already-saved product just moves it to the current folder instead of raising
+ * the unique violation (saved_items is UNIQUE(user_id, product_id); a product has
+ * one "home"). price_at_save snapshots the price now for later drop tracking.
  */
-export async function saveProduct(product: Product): Promise<void> {
+export async function saveProduct(
+  product: Product,
+  folderId: string | null = null,
+): Promise<void> {
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr) throw userErr;
   const user = userData.user;
   if (!user) throw new Error('Not signed in — cannot save this item.');
 
-  const { error } = await supabase.from('saved_items').insert({
-    user_id: user.id,
-    product_id: product.id,
-    price_at_save: product.price,
-    folder_id: null,
-  });
+  const { error } = await supabase
+    .from('saved_items')
+    .upsert(
+      {
+        user_id: user.id,
+        product_id: product.id,
+        price_at_save: product.price,
+        folder_id: folderId,
+      },
+      { onConflict: 'user_id,product_id' },
+    );
   if (error) throw error;
 }
 

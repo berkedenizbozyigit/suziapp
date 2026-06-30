@@ -3,25 +3,29 @@
 import 'react-native-gesture-handler';
 
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { Text } from './components/ui';
 import { ensureSession } from './lib/auth';
-import { DiscoverScreen } from './screens/DiscoverScreen';
-import { SavedScreen } from './screens/SavedScreen';
+import { Tabs } from './navigation/Tabs';
+import { SwipeScreen } from './screens/SwipeScreen';
+import type { RootStackParamList } from './navigation/types';
+import { colors } from './theme/tokens';
+import { useSuziFonts } from './theme/useSuziFonts';
 
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  const fontsLoaded = useSuziFonts();
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Bootstrap a session at launch so RLS (auth.uid()) lets saves work. If
-  // anonymous sign-in is disabled, ensureSession returns a clear message which
-  // we surface as a banner (and log to the console).
+  // anonymous sign-in is disabled, surface the message as a banner.
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -33,19 +37,31 @@ export default function App() {
     };
   }, []);
 
+  // Hold a cream splash until the brand typefaces are ready (avoids a flash of
+  // the system font on first paint).
+  if (!fontsLoaded) {
+    return <View style={[styles.root, styles.splash]} />;
+  }
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <NavigationContainer>
-          <Tab.Navigator screenOptions={{ headerShown: false }}>
-            <Tab.Screen name="Discover" component={DiscoverScreen} />
-            <Tab.Screen name="Saved" component={SavedScreen} />
-          </Tab.Navigator>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Tabs" component={Tabs} />
+            <Stack.Screen
+              name="Swipe"
+              component={SwipeScreen}
+              options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+            />
+          </Stack.Navigator>
         </NavigationContainer>
 
         {authError ? (
           <View style={styles.banner} pointerEvents="none">
-            <Text style={styles.bannerText}>{authError}</Text>
+            <Text variant="bodySm" color={colors.white}>
+              {authError}
+            </Text>
           </View>
         ) : null}
       </SafeAreaProvider>
@@ -55,22 +71,16 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
+  root: { flex: 1 },
+  splash: { backgroundColor: colors.cream },
   banner: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#b00020',
+    backgroundColor: colors.redDark,
     paddingTop: 56,
     paddingBottom: 14,
     paddingHorizontal: 16,
-  },
-  bannerText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

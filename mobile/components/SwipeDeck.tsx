@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -13,8 +13,10 @@ import Animated, {
 // scheduleOnRN replaces the deprecated runOnJS re-export.
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { ProductCard } from './ProductCard';
+import { colors } from '../theme/tokens';
 import type { Product } from '../types/db';
+import { SwipeCard } from './SwipeCard';
+import { Text } from './ui';
 
 type Props = {
   products: Product[];
@@ -24,20 +26,23 @@ type Props = {
   onExhausted?: () => void;
 };
 
-// --- Swipe feel tuning -----------------------------------------------------
-// A swipe commits if the card is dragged past this fraction of screen width,
-// OR flicked faster than the velocity threshold (so a quick flick counts even
-// if it didn't travel far). These two constants define the whole gesture feel.
+/** Imperative handle so on-screen ✕ / ♥ buttons can drive the same fling+advance
+ *  as a gesture (the mockup has both tap targets and swipe). */
+export type SwipeDeckHandle = {
+  swipeLeft: () => void;
+  swipeRight: () => void;
+};
+
+// A swipe commits if dragged past this fraction of screen width, OR flicked
+// faster than the velocity threshold. These define the whole gesture feel.
 const SWIPE_THRESHOLD_FRACTION = 0.28;
 const FLICK_VELOCITY = 800;
+const FLY_MS = 200;
 
-/**
- * A Tinder-style card stack. The top card follows the finger and rotates
- * slightly; the next card sits underneath and scales up as the top card leaves.
- * Built on gesture-handler + reanimated (no third-party deck library) so it
- * stays compatible with this exact Expo SDK.
- */
-export function SwipeDeck({ products, onSwipeRight, onSwipeLeft, onExhausted }: Props) {
+export const SwipeDeck = forwardRef<SwipeDeckHandle, Props>(function SwipeDeck(
+  { products, onSwipeRight, onSwipeLeft, onExhausted },
+  ref,
+) {
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const translateX = useSharedValue(0);
@@ -50,7 +55,7 @@ export function SwipeDeck({ products, onSwipeRight, onSwipeLeft, onExhausted }: 
     translateY.value = 0;
   }, [products, translateX, translateY]);
 
-  // Runs on the JS thread (via runOnJS) once a card has animated off-screen.
+  // Runs on the JS thread once a card has animated off-screen.
   const advance = useCallback(
     (direction: 'left' | 'right') => {
       const product = products[index];
@@ -58,7 +63,6 @@ export function SwipeDeck({ products, onSwipeRight, onSwipeLeft, onExhausted }: 
         if (direction === 'right') onSwipeRight(product);
         else onSwipeLeft(product);
       }
-      // Recenter for the card that's about to become the top card.
       translateX.value = 0;
       translateY.value = 0;
       setIndex((i) => {
@@ -67,7 +71,24 @@ export function SwipeDeck({ products, onSwipeRight, onSwipeLeft, onExhausted }: 
         return next;
       });
     },
-    [products, index, onSwipeRight, onSwipeLeft, onExhausted, translateX, translateY]
+    [products, index, onSwipeRight, onSwipeLeft, onExhausted, translateX, translateY],
+  );
+
+  // Animate the top card off-screen, then advance. Shared by gesture + buttons.
+  const fling = useCallback(
+    (direction: 'left' | 'right') => {
+      const target = direction === 'right' ? width * 1.5 : -width * 1.5;
+      translateX.value = withTiming(target, { duration: FLY_MS }, (finished) => {
+        if (finished) scheduleOnRN(advance, direction);
+      });
+    },
+    [width, translateX, advance],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({ swipeLeft: () => fling('left'), swipeRight: () => fling('right') }),
+    [fling],
   );
 
   const pan = Gesture.Pan()
@@ -81,12 +102,8 @@ export function SwipeDeck({ products, onSwipeRight, onSwipeLeft, onExhausted }: 
       if (passedDistance || flicked) {
         const sign = flicked ? e.velocityX : e.translationX;
         const direction = sign > 0 ? 'right' : 'left';
-        const target = direction === 'right' ? width * 1.5 : -width * 1.5;
-        translateX.value = withTiming(target, { duration: 200 }, (finished) => {
-          if (finished) scheduleOnRN(advance, direction);
-        });
+        scheduleOnRN(fling, direction);
       } else {
-        // Not far/fast enough — snap back to center.
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
       }
@@ -108,7 +125,7 @@ export function SwipeDeck({ products, onSwipeRight, onSwipeLeft, onExhausted }: 
       Math.abs(translateX.value),
       [0, width * 0.5],
       [0.94, 1],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return { transform: [{ scale }] };
   });
@@ -128,70 +145,39 @@ export function SwipeDeck({ products, onSwipeRight, onSwipeLeft, onExhausted }: 
     <View style={styles.deck}>
       {next ? (
         <Animated.View style={[styles.cardLayer, nextStyle]} pointerEvents="none">
-          <ProductCard product={next} />
+          <SwipeCard product={next} />
         </Animated.View>
       ) : null}
 
       <GestureDetector gesture={pan}>
         <Animated.View style={[styles.cardLayer, topStyle]}>
-          <ProductCard product={current} />
-          <Animated.View
-            style={[styles.badge, styles.saveBadge, saveBadgeStyle]}
-            pointerEvents="none"
-          >
-            <Text style={styles.saveText}>SAVE</Text>
+          <SwipeCard product={current} />
+          <Animated.View style={[styles.badge, styles.saveBadge, saveBadgeStyle]} pointerEvents="none">
+            <Text variant="button" color={colors.white}>
+              SAVE
+            </Text>
           </Animated.View>
-          <Animated.View
-            style={[styles.badge, styles.skipBadge, skipBadgeStyle]}
-            pointerEvents="none"
-          >
-            <Text style={styles.skipText}>SKIP</Text>
+          <Animated.View style={[styles.badge, styles.skipBadge, skipBadgeStyle]} pointerEvents="none">
+            <Text variant="button" color={colors.white}>
+              SKIP
+            </Text>
           </Animated.View>
         </Animated.View>
       </GestureDetector>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  deck: {
-    flex: 1,
-  },
-  cardLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
+  deck: { flex: 1 },
+  cardLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   badge: {
     position: 'absolute',
     top: 24,
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 3,
+    paddingHorizontal: 16,
+    borderRadius: 10,
   },
-  saveBadge: {
-    left: 24,
-    borderColor: '#2ecc71',
-    transform: [{ rotateZ: '-12deg' }],
-  },
-  saveText: {
-    color: '#2ecc71',
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  skipBadge: {
-    right: 24,
-    borderColor: '#e74c3c',
-    transform: [{ rotateZ: '12deg' }],
-  },
-  skipText: {
-    color: '#e74c3c',
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
+  saveBadge: { left: 24, backgroundColor: colors.red, transform: [{ rotateZ: '-10deg' }] },
+  skipBadge: { right: 24, backgroundColor: colors.ink, transform: [{ rotateZ: '10deg' }] },
 });

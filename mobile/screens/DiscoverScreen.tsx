@@ -1,213 +1,168 @@
-import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SwipeDeck } from '../components/SwipeDeck';
-import { fetchProducts, saveProduct } from '../lib/queries';
-import type { Product } from '../types/db';
+import { SuziWordmark, Text } from '../components/ui';
+import type { RootStackParamList } from '../navigation/types';
+import { colors, fonts, radii, shadow, space } from '../theme/tokens';
 
-type Status = 'loading' | 'error' | 'ready';
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+// Curated "picks" — until real curated folders exist, these seed a real AI
+// search (query) and carry a folder label into the deck. Images are seed-catalog
+// photos used as 2×2 collages.
+const img = (n: number) => `https://picsum.photos/seed/suzi-${n}/300/300`;
+const PICKS: Array<{ id: string; title: string; subtitle: string; query: string; images: string[] }> = [
+  { id: 'budget', title: "Hailey's Edit on a Budget", subtitle: '32 pieces · updated weekly', query: 'everyday casual basics affordable', images: [img(3), img(10), img(12), img(4)] },
+  { id: 'euro', title: 'Euro Summer 2026', subtitle: '48 pieces · trending', query: 'linen summer dress sandals light', images: [img(3), img(5), img(7), img(11)] },
+  { id: 'corporate', title: 'Corporate Queen', subtitle: '27 pieces · workwear', query: 'blazer tailored trousers shirt office', images: [img(1), img(5), img(2), img(8)] },
+  { id: 'flat', title: 'Grown-Up Flat', subtitle: '21 pieces · home & living', query: 'minimal neutral wardrobe staples', images: [img(6), img(2), img(4), img(9)] },
+];
 
 export function DiscoverScreen() {
+  const navigation = useNavigation<Nav>();
   const [query, setQuery] = useState('');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [status, setStatus] = useState<Status>('loading');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [exhausted, setExhausted] = useState(false);
-  // Transient, non-blocking feedback for the last swipe action.
-  const [note, setNote] = useState<string | null>(null);
 
-  const load = useCallback(async (q: string) => {
-    setStatus('loading');
-    setErrorMsg(null);
-    setExhausted(false);
-    setNote(null);
-    try {
-      const items = await fetchProducts(q);
-      setProducts(items);
-      setStatus('ready');
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Ürünler yüklenemedi.');
-      setStatus('error');
-    }
-  }, []);
-
-  useEffect(() => {
-    void load('');
-  }, [load]);
-
-  const handleSwipeRight = useCallback(async (product: Product) => {
-    try {
-      await saveProduct(product);
-      setNote(`Kaydedildi · ${product.title}`);
-    } catch (e) {
-      setNote(`Kaydedilemedi · ${e instanceof Error ? e.message : 'bilinmeyen hata'}`);
-    }
-  }, []);
-
-  const handleSwipeLeft = useCallback((product: Product) => {
-    setNote(`Atlandı · ${product.title}`);
-  }, []);
+  const runSearch = (text: string) => {
+    const q = text.trim();
+    if (!q) return;
+    navigation.navigate('Swipe', { query: q });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Ne arıyorsun?"
-          placeholderTextColor="#9a9aa2"
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={() => void load(query)}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-        <Pressable
-          style={styles.searchButton}
-          onPress={() => void load(query)}
-          accessibilityRole="button"
-        >
-          <Text style={styles.searchButtonText}>Ara</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.body}>
-        {status === 'loading' ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color="#1a1a1f" />
-          </View>
-        ) : status === 'error' ? (
-          <View style={styles.center}>
-            <Text style={styles.stateTitle}>Bir şeyler ters gitti</Text>
-            <Text style={styles.stateBody}>{errorMsg}</Text>
-            <Pressable style={styles.retryButton} onPress={() => void load(query)}>
-              <Text style={styles.retryText}>Tekrar dene</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* top bar */}
+        <View style={styles.topBar}>
+          <SuziWordmark size={30} />
+          <View style={styles.topRight}>
+            <Pressable style={styles.iconBtn} accessibilityRole="button">
+              <Ionicons name="notifications-outline" size={20} color={colors.ink} />
             </Pressable>
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={18} color={colors.textMuted} />
+            </View>
           </View>
-        ) : products.length === 0 ? (
-          <View style={styles.center}>
-            <Text style={styles.stateTitle}>Sonuç yok</Text>
-            <Text style={styles.stateBody}>Farklı bir arama deneyebilirsin.</Text>
-          </View>
-        ) : exhausted ? (
-          <View style={styles.center}>
-            <Text style={styles.stateTitle}>Hepsini gördün 🎉</Text>
-            <Text style={styles.stateBody}>Yeni ürünler için tekrar ara.</Text>
-            <Pressable style={styles.retryButton} onPress={() => void load(query)}>
-              <Text style={styles.retryText}>Yenile</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <SwipeDeck
-            products={products}
-            onSwipeRight={handleSwipeRight}
-            onSwipeLeft={handleSwipeLeft}
-            onExhausted={() => setExhausted(true)}
-          />
-        )}
-      </View>
-
-      {note ? (
-        <View style={styles.noteBar} pointerEvents="none">
-          <Text style={styles.noteText} numberOfLines={1}>
-            {note}
-          </Text>
         </View>
-      ) : null}
+
+        <Text variant="display" style={styles.headline}>
+          What are we hunting today?
+        </Text>
+
+        {/* search */}
+        <View style={styles.search}>
+          <Ionicons name="sparkles" size={18} color={colors.red} />
+          <TextInput
+            style={styles.input}
+            placeholder="Tell Suzi what you need…"
+            placeholderTextColor={colors.textFaint}
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={() => runSearch(query)}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          <Pressable style={styles.send} onPress={() => runSearch(query)} accessibilityRole="button">
+            <Ionicons name="arrow-up" size={20} color={colors.white} />
+          </Pressable>
+        </View>
+
+        <Text variant="label" color={colors.textMuted} style={styles.sectionLabel}>
+          SUZI'S PICKS
+        </Text>
+
+        <View style={styles.grid}>
+          {PICKS.map((pick) => (
+            <Pressable
+              key={pick.id}
+              style={styles.pick}
+              onPress={() => navigation.navigate('Swipe', { query: pick.query, folderName: pick.title })}
+              accessibilityRole="button"
+            >
+              <View style={styles.collage}>
+                {pick.images.slice(0, 4).map((uri, i) => (
+                  <Image key={i} source={{ uri }} style={styles.collageImg} />
+                ))}
+              </View>
+              <Text variant="titleSm" numberOfLines={2} style={styles.pickTitle}>
+                {pick.title}
+              </Text>
+              <Text variant="bodySm" color={colors.textFaint}>
+                {pick.subtitle}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#f7f7fa',
-  },
-  searchRow: {
+  safe: { flex: 1, backgroundColor: colors.paper },
+  content: { paddingHorizontal: space.xl, paddingBottom: space.xxxl },
+  topBar: {
     flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: space.sm,
   },
-  input: {
-    flex: 1,
-    height: 46,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#1a1a1f',
-    borderWidth: 1,
-    borderColor: '#e6e6ec',
-  },
-  searchButton: {
-    height: 46,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: '#1a1a1f',
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.pill,
+    backgroundColor: colors.n100,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  searchButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  body: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  center: {
-    flex: 1,
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.pill,
+    backgroundColor: colors.n100,
+    borderWidth: 2,
+    borderColor: colors.red,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 24,
   },
-  stateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1f',
+  headline: { marginTop: space.lg, marginBottom: space.lg },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingLeft: space.lg,
+    paddingRight: space.xs,
+    height: 56,
   },
-  stateBody: {
-    fontSize: 15,
-    color: '#6b6b73',
-    textAlign: 'center',
+  input: { flex: 1, fontFamily: fonts.sans, fontSize: 16, color: colors.ink, height: '100%' },
+  send: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.pill,
+    backgroundColor: colors.red,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  retryButton: {
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: '#1a1a1f',
+  sectionLabel: { marginTop: space.xxl, marginBottom: space.md },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: space.xl },
+  pick: { width: '48%', gap: space.xs },
+  collage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: colors.n100,
+    marginBottom: space.xs,
+    ...shadow.soft,
   },
-  retryText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  noteBar: {
-    position: 'absolute',
-    bottom: 16,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(26,26,31,0.92)',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 20,
-    maxWidth: '90%',
-  },
-  noteText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  collageImg: { width: '50%', height: '50%' },
+  pickTitle: { marginTop: space.xs },
 });
