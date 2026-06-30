@@ -5,3 +5,6 @@ node_modules/
 # Supabase CLI local state (never commit)
 **/supabase/.temp/
 **/supabase/.branches/
+
+# Local smoke-test secrets (never commit)
+**/smoke.env
