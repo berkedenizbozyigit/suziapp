@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '../components/AuthProvider';
 import { SwipeDeck, type SwipeDeckHandle } from '../components/SwipeDeck';
 import { Button, Pill, Text } from '../components/ui';
+import { SAVES_BEFORE_PROMPT } from '../lib/authGate';
 import { getOrCreateFolderForQuery } from '../lib/folders';
 import { saveProduct } from '../lib/queries';
 import { searchDeck } from '../lib/search';
@@ -19,6 +21,9 @@ type Status = 'loading' | 'ready' | 'empty' | 'exhausted' | 'error';
 export function SwipeScreen({ route, navigation }: Props) {
   const { query, folderId, folderName, imageDataUri } = route.params ?? {};
   const deckRef = useRef<SwipeDeckHandle>(null);
+  const { promptUpgrade } = useAuth();
+  // Saves made this session — after a few, softly nudge anonymous users to keep them.
+  const sessionSaves = useRef(0);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [status, setStatus] = useState<Status>('loading');
@@ -90,11 +95,13 @@ export function SwipeScreen({ route, navigation }: Props) {
         const fid = await resolveFolder();
         await saveProduct(product, fid);
         flash(`Saved · ${product.title}`);
+        sessionSaves.current += 1;
+        if (sessionSaves.current === SAVES_BEFORE_PROMPT) void promptUpgrade();
       } catch (e) {
         flash(`Couldn't save · ${e instanceof Error ? e.message : 'error'}`);
       }
     },
-    [resolveFolder, flash],
+    [resolveFolder, flash, promptUpgrade],
   );
 
   const handleSwipeLeft = useCallback(

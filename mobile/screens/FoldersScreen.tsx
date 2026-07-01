@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '../components/AuthProvider';
 import { Button, Text } from '../components/ui';
 import { listFolderCards, type FolderCard } from '../lib/folders';
 import type { RootStackParamList } from '../navigation/types';
@@ -19,6 +20,7 @@ type Status = 'loading' | 'error' | 'ready';
  *  SwipeScreen), so this screen is read-only: browse + open. */
 export function FoldersScreen() {
   const navigation = useNavigation<Nav>();
+  const { promptUpgrade } = useAuth();
   const [cards, setCards] = useState<FolderCard[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -28,11 +30,13 @@ export function FoldersScreen() {
       const next = await listFolderCards();
       setCards(next);
       setStatus('ready');
+      // If they've built up folders while anonymous, softly nudge them to keep them.
+      if (next.length > 0) void promptUpgrade();
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Couldn't load your folders.");
       setStatus('error');
     }
-  }, []);
+  }, [promptUpgrade]);
 
   // Refetch on focus so folders/counts update after swiping in the deck.
   useFocusEffect(

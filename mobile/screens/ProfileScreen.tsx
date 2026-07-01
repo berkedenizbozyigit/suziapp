@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '../components/AuthProvider';
 import { Button, Text } from '../components/ui';
 import { supabase } from '../lib/supabase';
 import { colors, radii, space } from '../theme/tokens';
@@ -18,19 +19,24 @@ const ROWS: Row[] = [
 /** Profile — account shell per the mockup: identity, Suzi Premium+, and the
  *  settings rows. Rows are presentational until their features ship. */
 export function ProfileScreen() {
+  const { isAnonymous, promptUpgrade } = useAuth();
   const [note, setNote] = useState<string | null>(null);
 
-  // Anonymous auth: surface a short id so the account still feels real.
+  // Surface identity so the account feels real: email once permanent, else a
+  // short id for the anonymous session.
   const [shortId, setShortId] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     void supabase.auth.getUser().then(({ data }) => {
-      if (active) setShortId(data.user ? data.user.id.slice(0, 8) : null);
+      if (!active) return;
+      setShortId(data.user ? data.user.id.slice(0, 8) : null);
+      setEmail(data.user?.email ?? null);
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [isAnonymous]);
 
   useEffect(() => {
     if (!note) return;
@@ -53,12 +59,28 @@ export function ProfileScreen() {
             <Ionicons name="person" size={30} color={colors.textMuted} />
           </View>
           <View style={styles.identityText}>
-            <Text variant="titleSm">Guest</Text>
+            <Text variant="titleSm" numberOfLines={1}>
+              {isAnonymous === false && email ? email : 'Guest'}
+            </Text>
             <Text variant="bodySm" color={colors.textFaint}>
-              {shortId ? `Swiping anonymously · ${shortId}` : 'Swiping anonymously'}
+              {isAnonymous === false
+                ? 'Signed in'
+                : shortId
+                  ? `Swiping anonymously · ${shortId}`
+                  : 'Swiping anonymously'}
             </Text>
           </View>
         </View>
+
+        {/* create account (anonymous only) */}
+        {isAnonymous === true ? (
+          <View style={styles.createCard}>
+            <Text variant="bodySm" color={colors.textMuted}>
+              Create an account to keep your picks, folders, and alerts across devices.
+            </Text>
+            <Button label="Create account" full onPress={() => void promptUpgrade({ force: true })} />
+          </View>
+        ) : null}
 
         {/* premium */}
         <View style={styles.premium}>
@@ -122,7 +144,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  identityText: { gap: 2 },
+  identityText: { flex: 1, gap: 2 },
+  createCard: {
+    gap: space.sm,
+    padding: space.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   premium: {
     gap: space.sm,
     padding: space.lg,

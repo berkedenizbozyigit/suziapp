@@ -48,3 +48,32 @@ export async function ensureSession(): Promise<SessionResult> {
     return { ok: false, reason: 'network', message };
   }
 }
+
+// --- Phase 5: anonymous → permanent account upgrade -------------------------
+
+/** Whether the current session is an anonymous (not-yet-upgraded) user. */
+export async function getIsAnonymous(): Promise<boolean> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return data.user?.is_anonymous ?? false;
+}
+
+/**
+ * Begin upgrading the anonymous user to a permanent account by attaching an
+ * email. Supabase emails a 6-digit code. The user id is UNCHANGED, so all
+ * existing saved_items / folders / messages keep working.
+ */
+export async function startEmailUpgrade(email: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ email: email.trim() });
+  if (error) throw error;
+}
+
+/** Complete the upgrade by verifying the emailed 6-digit code. */
+export async function verifyEmailUpgrade(email: string, token: string): Promise<void> {
+  const { error } = await supabase.auth.verifyOtp({
+    email: email.trim(),
+    token: token.trim(),
+    type: 'email_change',
+  });
+  if (error) throw error;
+}

@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { AuthProvider } from './components/AuthProvider';
 import { Text } from './components/ui';
 import { ensureSession } from './lib/auth';
 import { Tabs } from './navigation/Tabs';
@@ -47,8 +48,9 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <NavigationContainer>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <AuthProvider>
+          <NavigationContainer>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Tabs" component={Tabs} />
             <Stack.Screen
               name="FolderDetail"
@@ -60,16 +62,17 @@ export default function App() {
               component={SwipeScreen}
               options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
             />
-          </Stack.Navigator>
-        </NavigationContainer>
+            </Stack.Navigator>
+          </NavigationContainer>
 
-        {authError ? (
-          <View style={styles.banner} pointerEvents="none">
-            <Text variant="bodySm" color={colors.white}>
-              {authError}
-            </Text>
-          </View>
-        ) : null}
+          {authError ? (
+            <View style={styles.banner} pointerEvents="none">
+              <Text variant="bodySm" color={colors.white}>
+                {authError}
+              </Text>
+            </View>
+          ) : null}
+        </AuthProvider>
       </SafeAreaProvider>
       <StatusBar style="dark" />
     </GestureHandlerRootView>
