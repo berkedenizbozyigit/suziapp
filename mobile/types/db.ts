@@ -77,6 +77,22 @@ export type Profile = {
   created_at: string;
 };
 
+/** Who authored a message. */
+export type MessageRole = 'user' | 'suzi';
+
+/** messages(...) — Ask Suzi chat (Phase 1). folder_id null = the global thread;
+ *  a folder_id scopes the thread to that folder ("conversation"). image_url is
+ *  set for visual-search messages. */
+export type Message = {
+  id: string;
+  user_id: string;
+  folder_id: string | null;
+  role: MessageRole;
+  content: string | null;
+  image_url: string | null;
+  created_at: string;
+};
+
 /**
  * The shape we insert into saved_items. id/created_at are DB-generated, so they
  * are omitted; folder_id is optional (defaults to null = "All saves").
@@ -124,6 +140,18 @@ export type Database = {
         Row: Profile;
         Insert: { id: string; display_name?: string | null };
         Update: { display_name?: string | null; expo_push_token?: string | null };
+        Relationships: [];
+      };
+      messages: {
+        Row: Message;
+        Insert: {
+          user_id: string;
+          role: MessageRole;
+          folder_id?: string | null;
+          content?: string | null;
+          image_url?: string | null;
+        };
+        Update: { content?: string | null };
         Relationships: [];
       };
     };

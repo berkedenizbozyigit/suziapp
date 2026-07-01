@@ -1,8 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
+import { AskSuziScreen } from '../screens/AskSuziScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { FoldersScreen } from '../screens/FoldersScreen';
-import { AskSuziScreen, ProfileScreen, WindowShopScreen } from '../screens/Placeholders';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { WindowShopScreen } from '../screens/WindowShopScreen';
 import { SuziTabBar } from './SuziTabBar';
 import type { TabsParamList } from './types';
 
