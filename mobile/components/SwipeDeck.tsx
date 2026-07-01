@@ -26,7 +26,7 @@ type Props = {
   onExhausted?: () => void;
 };
 
-/** Imperative handle so on-screen ✕ / ♥ buttons can drive the same fling+advance
+/** Imperative handle so the on-screen skip / save buttons can drive the same fling+advance
  *  as a gesture (the mockup has both tap targets and swipe). */
 export type SwipeDeckHandle = {
   swipeLeft: () => void;

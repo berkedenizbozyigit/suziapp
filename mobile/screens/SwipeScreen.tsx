@@ -48,7 +48,7 @@ export function SwipeScreen({ route, navigation }: Props) {
       setReason(reason);
       setStatus(deck.length === 0 ? 'empty' : 'ready');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Arama başarısız.');
+      setErrorMsg(e instanceof Error ? e.message : 'Search failed.');
       setStatus('error');
     }
   }, [query, folderId, imageDataUri]);
@@ -89,9 +89,9 @@ export function SwipeScreen({ route, navigation }: Props) {
       try {
         const fid = await resolveFolder();
         await saveProduct(product, fid);
-        flash(`Kaydedildi · ${product.title}`);
+        flash(`Saved · ${product.title}`);
       } catch (e) {
-        flash(`Kaydedilemedi · ${e instanceof Error ? e.message : 'hata'}`);
+        flash(`Couldn't save · ${e instanceof Error ? e.message : 'error'}`);
       }
     },
     [resolveFolder, flash],
@@ -100,7 +100,7 @@ export function SwipeScreen({ route, navigation }: Props) {
   const handleSwipeLeft = useCallback(
     (product: Product) => {
       swiped.current.add(product.id);
-      flash(`Atlandı · ${product.title}`);
+      flash(`Skipped · ${product.title}`);
     },
     [flash],
   );
@@ -114,14 +114,14 @@ export function SwipeScreen({ route, navigation }: Props) {
           onPress={() => navigation.goBack()}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel="Geri"
+          accessibilityLabel="Back"
         >
           <Ionicons name="chevron-back" size={22} color={colors.ink} />
           <Text variant="bodyMedium">Suzi</Text>
         </Pressable>
         <Pressable
           style={styles.filterBtn}
-          onPress={() => flash('Filtreler yakında')}
+          onPress={() => flash('Filters coming soon')}
           hitSlop={12}
           accessibilityRole="button"
         >
@@ -135,37 +135,38 @@ export function SwipeScreen({ route, navigation }: Props) {
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.red} />
             <Text variant="body" color={colors.textMuted}>
-              Suzi senin için tarıyor…
+              Suzi is scanning for you…
             </Text>
           </View>
         ) : status === 'error' ? (
           <View style={styles.center}>
-            <Text variant="titleSm">Bir şeyler ters gitti</Text>
+            <Text variant="titleSm">Something went wrong</Text>
             <Text variant="bodySm" color={colors.textMuted} align="center">
               {errorMsg}
             </Text>
-            <Button label="Tekrar dene" onPress={() => void load()} />
+            <Button label="Try again" onPress={() => void load()} />
           </View>
         ) : status === 'exhausted' ? (
           <View style={styles.center}>
-            <Text variant="titleSm">Hepsini gördün 🎉</Text>
+            <Ionicons name="checkmark-circle" size={40} color={colors.red} />
+            <Text variant="titleSm">You've seen them all</Text>
             <Text variant="bodySm" color={colors.textMuted} align="center">
-              Beğendiklerin Picks sekmesinde. Daha fazlası için aramayı genişlet.
+              Your likes are in Picks. Broaden the search for more.
             </Text>
-            <Button label="Daha geniş ara" onPress={() => void load()} />
-            <Button label="Geri dön" variant="secondary" onPress={() => navigation.goBack()} />
+            <Button label="Search wider" onPress={() => void load()} />
+            <Button label="Go back" variant="secondary" onPress={() => navigation.goBack()} />
           </View>
         ) : status === 'empty' ? (
           <View style={styles.center}>
             <Text variant="titleSm">
-              {reason === 'provider_unavailable' ? 'Arama şu an yapılamadı' : 'Eşleşme yok'}
+              {reason === 'provider_unavailable' ? 'Search is unavailable' : 'No matches'}
             </Text>
             <Text variant="bodySm" color={colors.textMuted} align="center">
               {reason === 'provider_unavailable'
-                ? 'Birazdan tekrar dene.'
-                : 'Farklı bir arama dene.'}
+                ? 'Try again in a moment.'
+                : 'Try a different search.'}
             </Text>
-            <Button label="Geri dön" variant="secondary" onPress={() => navigation.goBack()} />
+            <Button label="Go back" variant="secondary" onPress={() => navigation.goBack()} />
           </View>
         ) : (
           <SwipeDeck

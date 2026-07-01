@@ -26,8 +26,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Suzi, benzer parçaları bulmak için seçtiğin fotoğrafa erişir.",
-          "cameraPermission": "Suzi, çektiğin fotoğrafla arama yapmak için kameraya erişir.",
+          "photosPermission": "Suzi uses the photo you pick to find similar pieces.",
+          "cameraPermission": "Suzi uses your camera to search with a photo you take.",
           "microphonePermission": false
         }
       ]

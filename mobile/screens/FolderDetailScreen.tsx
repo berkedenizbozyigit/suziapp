@@ -30,7 +30,7 @@ export function FolderDetailScreen({ route, navigation }: Props) {
       setProducts(await listFolderProducts(folderId));
       setStatus('ready');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Klasör yüklenemedi.');
+      setErrorMsg(e instanceof Error ? e.message : "Couldn't load this folder.");
       setStatus('error');
     }
   }, [folderId]);
@@ -62,25 +62,25 @@ export function FolderDetailScreen({ route, navigation }: Props) {
         </View>
       ) : status === 'error' ? (
         <View style={styles.center}>
-          <Text variant="titleSm">Bir şeyler ters gitti</Text>
+          <Text variant="titleSm">Something went wrong</Text>
           <Text variant="bodySm" color={colors.textMuted} align="center">
             {errorMsg}
           </Text>
-          <Button label="Tekrar dene" onPress={() => void load()} />
+          <Button label="Try again" onPress={() => void load()} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Text variant="title">{folderName}</Text>
           {canContinue ? (
             <Text variant="bodySm" color={colors.textMuted} style={styles.queryLine}>
-              Aradığın: “{queryText}”
+              You searched: “{queryText}”
             </Text>
           ) : null}
 
           {canContinue ? (
             <View style={styles.continueRow}>
               <Button
-                label="Bu aramaya devam et"
+                label="Continue this search"
                 trailing="→"
                 full
                 onPress={() =>
@@ -96,11 +96,11 @@ export function FolderDetailScreen({ route, navigation }: Props) {
 
           {products.length === 0 ? (
             <View style={styles.emptyBlock}>
-              <Text variant="titleSm">Henüz parça yok</Text>
+              <Text variant="titleSm">Nothing here yet</Text>
               <Text variant="bodySm" color={colors.textMuted} align="center">
                 {canContinue
-                  ? 'Aramaya devam et, beğendiklerin buraya gelsin.'
-                  : 'Discover’da sağa kaydırdıkların burada birikir.'}
+                  ? 'Continue the search and your likes will land here.'
+                  : 'Items you swipe right on Discover collect here.'}
               </Text>
             </View>
           ) : (
@@ -113,7 +113,7 @@ export function FolderDetailScreen({ route, navigation }: Props) {
                     ) : (
                       <View style={[styles.itemImage, styles.itemPlaceholder]}>
                         <Text variant="bodySm" color={colors.textFaint}>
-                          Görsel yok
+                          No image
                         </Text>
                       </View>
                     )}

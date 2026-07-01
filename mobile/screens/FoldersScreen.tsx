@@ -29,7 +29,7 @@ export function FoldersScreen() {
       setCards(next);
       setStatus('ready');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Klasörler yüklenemedi.');
+      setErrorMsg(e instanceof Error ? e.message : "Couldn't load your folders.");
       setStatus('error');
     }
   }, []);
@@ -46,7 +46,7 @@ export function FoldersScreen() {
       <View style={styles.header}>
         <Text variant="title">Picks</Text>
         <Text variant="bodySm" color={colors.textMuted}>
-          Her arama bir klasöre dönüşür — kaldığın yerden devam et.
+          Every search becomes a folder — pick up where you left off.
         </Text>
       </View>
 
@@ -56,19 +56,19 @@ export function FoldersScreen() {
         </View>
       ) : status === 'error' ? (
         <View style={styles.center}>
-          <Text variant="titleSm">Bir şeyler ters gitti</Text>
+          <Text variant="titleSm">Something went wrong</Text>
           <Text variant="bodySm" color={colors.textMuted} align="center">
             {errorMsg}
           </Text>
-          <Button label="Tekrar dene" onPress={() => void load()} />
+          <Button label="Try again" onPress={() => void load()} />
         </View>
       ) : cards.length === 0 ? (
         <View style={styles.center}>
-          <Text variant="titleSm">Henüz klasör yok</Text>
+          <Text variant="titleSm">No folders yet</Text>
           <Text variant="bodySm" color={colors.textMuted} align="center">
-            Discover'da bir arama yap, sağa kaydırdıkların burada bir klasör olsun.
+            Search on Discover and swipe right — your picks land here as a folder.
           </Text>
-          <Button label="Aramaya başla" onPress={() => navigation.navigate('Tabs')} />
+          <Button label="Start searching" onPress={() => navigation.navigate('Tabs')} />
         </View>
       ) : (
         <ScrollView
@@ -87,7 +87,7 @@ export function FoldersScreen() {
                 })
               }
               accessibilityRole="button"
-              accessibilityLabel={`${card.name}, ${card.count} parça`}
+              accessibilityLabel={`${card.name}, ${card.count} items`}
             >
               <View style={styles.cover}>
                 {card.coverImage ? (
@@ -102,7 +102,7 @@ export function FoldersScreen() {
                 {card.name}
               </Text>
               <Text variant="bodySm" color={colors.textFaint}>
-                {card.count} parça
+                {card.count} items
               </Text>
             </Pressable>
           ))}

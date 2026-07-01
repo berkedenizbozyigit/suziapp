@@ -39,7 +39,7 @@ export function DiscoverScreen() {
   const searchByPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('İzin gerekli', 'Fotoğrafla arama için galeri erişimine izin ver.');
+      Alert.alert('Permission needed', 'Allow photo library access to search by photo.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -51,12 +51,12 @@ export function DiscoverScreen() {
     if (result.canceled) return;
     const asset = result.assets[0];
     if (!asset?.base64) {
-      Alert.alert('Olmadı', 'Görsel okunamadı, tekrar dener misin?');
+      Alert.alert("Didn't work", "Couldn't read that image — try again?");
       return;
     }
     // expo-image-picker returns JPEG base64 (even for HEIC originals).
     const dataUri = `data:image/jpeg;base64,${asset.base64}`;
-    navigation.navigate('Swipe', { imageDataUri: dataUri, folderName: 'Görsel arama' });
+    navigation.navigate('Swipe', { imageDataUri: dataUri, folderName: 'Photo search' });
   };
 
   return (
@@ -101,11 +101,11 @@ export function DiscoverScreen() {
           style={styles.photoBtn}
           onPress={() => void searchByPhoto()}
           accessibilityRole="button"
-          accessibilityLabel="Fotoğrafla ara"
+          accessibilityLabel="Search by photo"
         >
           <Ionicons name="camera-outline" size={18} color={colors.red} />
           <Text variant="bodyMedium" color={colors.red}>
-            Fotoğrafla ara
+            Search by photo
           </Text>
         </Pressable>
 
