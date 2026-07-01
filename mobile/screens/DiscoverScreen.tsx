@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SuziWordmark, Text } from '../components/ui';
@@ -30,6 +31,32 @@ export function DiscoverScreen() {
     const q = text.trim();
     if (!q) return;
     navigation.navigate('Swipe', { query: q });
+  };
+
+  // Visual search: pick a compressed photo, hand it to the deck as a base64 data
+  // URI. The `search` Edge Function forwards data URIs straight to Cohere, so no
+  // upload / storage bucket is needed.
+  const searchByPhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('İzin gerekli', 'Fotoğrafla arama için galeri erişimine izin ver.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    if (!asset?.base64) {
+      Alert.alert('Olmadı', 'Görsel okunamadı, tekrar dener misin?');
+      return;
+    }
+    // expo-image-picker returns JPEG base64 (even for HEIC originals).
+    const dataUri = `data:image/jpeg;base64,${asset.base64}`;
+    navigation.navigate('Swipe', { imageDataUri: dataUri, folderName: 'Görsel arama' });
   };
 
   return (
@@ -69,6 +96,18 @@ export function DiscoverScreen() {
             <Ionicons name="arrow-up" size={20} color={colors.white} />
           </Pressable>
         </View>
+
+        <Pressable
+          style={styles.photoBtn}
+          onPress={() => void searchByPhoto()}
+          accessibilityRole="button"
+          accessibilityLabel="Fotoğrafla ara"
+        >
+          <Ionicons name="camera-outline" size={18} color={colors.red} />
+          <Text variant="bodyMedium" color={colors.red}>
+            Fotoğrafla ara
+          </Text>
+        </Pressable>
 
         <Text variant="label" color={colors.textMuted} style={styles.sectionLabel}>
           SUZI'S PICKS
@@ -148,6 +187,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.red,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  photoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    alignSelf: 'flex-start',
+    marginTop: space.md,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.redSoft,
   },
   sectionLabel: { marginTop: space.xxl, marginBottom: space.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: space.xl },

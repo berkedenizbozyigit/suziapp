@@ -13,6 +13,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from './components/ui';
 import { ensureSession } from './lib/auth';
 import { Tabs } from './navigation/Tabs';
+import { FolderDetailScreen } from './screens/FolderDetailScreen';
 import { SwipeScreen } from './screens/SwipeScreen';
 import type { RootStackParamList } from './navigation/types';
 import { colors } from './theme/tokens';
@@ -49,6 +50,11 @@ export default function App() {
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Tabs" component={Tabs} />
+            <Stack.Screen
+              name="FolderDetail"
+              component={FolderDetailScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
             <Stack.Screen
               name="Swipe"
               component={SwipeScreen}

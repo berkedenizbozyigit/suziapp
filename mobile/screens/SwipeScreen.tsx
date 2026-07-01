@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SwipeDeck, type SwipeDeckHandle } from '../components/SwipeDeck';
 import { Button, Pill, Text } from '../components/ui';
+import { getOrCreateFolderForQuery } from '../lib/folders';
 import { saveProduct } from '../lib/queries';
 import { searchDeck } from '../lib/search';
 import type { RootStackParamList } from '../navigation/types';
@@ -16,7 +17,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Swipe'>;
 type Status = 'loading' | 'ready' | 'empty' | 'exhausted' | 'error';
 
 export function SwipeScreen({ route, navigation }: Props) {
-  const { query, folderId, folderName } = route.params ?? {};
+  const { query, folderId, folderName, imageDataUri } = route.params ?? {};
   const deckRef = useRef<SwipeDeckHandle>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -26,6 +27,11 @@ export function SwipeScreen({ route, navigation }: Props) {
   const [note, setNote] = useState<string | null>(null);
   // Session de-dupe: ids already swiped, so "look harder" doesn't repeat them.
   const swiped = useRef<Set<string>>(new Set());
+  // The folder saves land in. If we arrived with a folder (continuing one), use
+  // it. Otherwise it's resolved lazily on the first save: a text search becomes a
+  // named "conversation" folder; an image-only search stays in "All saves".
+  const activeFolderId = useRef<string | null>(folderId ?? null);
+  const folderResolved = useRef<boolean>(folderId != null);
 
   const load = useCallback(async () => {
     setStatus('loading');
@@ -34,6 +40,7 @@ export function SwipeScreen({ route, navigation }: Props) {
     try {
       const { products: deck, reason } = await searchDeck({
         text: query,
+        imageUrl: imageDataUri,
         folderId,
         excludeProductIds: [...swiped.current],
       });
@@ -44,7 +51,24 @@ export function SwipeScreen({ route, navigation }: Props) {
       setErrorMsg(e instanceof Error ? e.message : 'Arama başarısız.');
       setStatus('error');
     }
-  }, [query, folderId]);
+  }, [query, folderId, imageDataUri]);
+
+  // Resolve (once) which folder right-swipes save into. Auto-creates a folder for
+  // a text search so every search naturally becomes a continuable conversation.
+  const resolveFolder = useCallback(async (): Promise<string | null> => {
+    if (folderResolved.current) return activeFolderId.current;
+    folderResolved.current = true;
+    if (query && query.trim()) {
+      try {
+        activeFolderId.current = await getOrCreateFolderForQuery(query, folderName ?? query);
+      } catch {
+        activeFolderId.current = null; // fall back to "All saves" if create fails
+      }
+    } else {
+      activeFolderId.current = null; // image-only search → unfiled
+    }
+    return activeFolderId.current;
+  }, [query, folderName]);
 
   useEffect(() => {
     void load();
@@ -63,13 +87,14 @@ export function SwipeScreen({ route, navigation }: Props) {
     async (product: Product) => {
       swiped.current.add(product.id);
       try {
-        await saveProduct(product, folderId ?? null);
+        const fid = await resolveFolder();
+        await saveProduct(product, fid);
         flash(`Kaydedildi · ${product.title}`);
       } catch (e) {
         flash(`Kaydedilemedi · ${e instanceof Error ? e.message : 'hata'}`);
       }
     },
-    [folderId, flash],
+    [resolveFolder, flash],
   );
 
   const handleSwipeLeft = useCallback(

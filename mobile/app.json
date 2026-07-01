@@ -22,7 +22,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Suzi, benzer parçaları bulmak için seçtiğin fotoğrafa erişir.",
+          "cameraPermission": "Suzi, çektiğin fotoğrafla arama yapmak için kameraya erişir.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }
